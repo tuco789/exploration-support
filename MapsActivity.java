@@ -50,6 +50,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private int markerStart = 0;
     private int markerCount;
     private int screenCount = 0;
+//    private int markersPerScreenCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -152,12 +153,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (screenCount<conf_colors.length) { // For each screen
             int markersPerScreen = 0;
 
-                        // Count the number markers to be drawn for this screen
-            for (int i = 0; i < conf_colors[screenCount]; i++) {
+            // Count the number markers to be drawn for this screen
+            for (int i = colorCount; i < (colorCount + conf_colors[screenCount]); i++) {
                 markersPerScreen = markersPerScreen + conf_markers[i];
             }
 
-            for (markerCount = markerStart; markerCount < markerStart + markersPerScreen + 1; markerCount++) { // For each marker in this screen
+            for (markerCount = markerStart; markerCount < markerStart + markersPerScreen; markerCount++) { // For each marker in this screen
 
                 // Scale marker locations to the area covered by radar/map
                 float lat = (float) (HELSINKI.latitude - 0.008 + (0.016 * latArray.getFloat(markerCount, 1)));
@@ -181,6 +182,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoor_20)));
             }
             markerStart = markerStart + markersPerScreen;
+//            markersPerScreenCount = markersPerScreenCount + markersPerScreen;
             colorCount = colorCount + conf_colors[screenCount];
             screenCount++;
         }
