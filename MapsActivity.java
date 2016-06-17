@@ -160,7 +160,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 switch (uiStyle) {
 
-                    case 0: { // Use dots as markers
+                    case 0: case 3: { // Use dots as markers
                         // Draw markers with the appropriate color i.e. check from conf_color if there was 2nd and 3rd color for this screen and from conf_markers how many markers to print with each color
                         if (markerCount < (markerStart + conf_markers[colorCount])) // If should use the first color
                             mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
@@ -178,13 +178,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         // Draw markers with the appropriate color i.e. check from conf_color if there was 2nd and 3rd color for this screen and from conf_markers how many markers to print with each color
                         if (markerCount < (markerStart + conf_markers[colorCount])) // If should use the first color
                             mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_eating_20)));
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_food_20)));
                         else if (conf_colors[screenCount] > 1 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1]) // If should use the second color
                             mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_culture_20)));
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_culture_20)));
                         else if (conf_colors[screenCount] > 2 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2]) // If should use the third color
                             mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_outdoors_20)));
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_outdoors_20)));
                     break;
                     }
                 }
@@ -193,7 +193,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             markerStart = markerStart + markersPerScreen;
             colorCount = colorCount + conf_colors[screenCount];
             screenCount++;
-        } else if (uiStyle < 3) {
+        } else if (uiStyle < 4) {
             // Switch to new UI style and start over for next screen
             uiStyle++;
             markerStart = 0;
@@ -210,7 +210,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap.addMarker(new MarkerOptions().position(SOUTH).title("South"));
 
         // If UI style requires, adds a radar UI overlay at Punavuori, Helsinki
-        if (uiStyle != 2) {
+        if (uiStyle == 0 || uiStyle == 1) {
             mImages.clear();
             mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.radar_sq));
             mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
