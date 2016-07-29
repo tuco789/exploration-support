@@ -28,13 +28,31 @@ import java.util.List;
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "fi.aalto.ming.MapsActivity";
-    private static final LatLng HELSINKI = new LatLng(60.160999, 24.944800);
+/*    private static final LatLng HELSINKI = new LatLng(60.160999, 24.944800);
     private static final LatLng NEAR_HKI =
             new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
     private static final LatLng WEST =
             new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.016059);
     private static final LatLng SOUTH =
             new LatLng(HELSINKI.latitude - 0.008, HELSINKI.longitude);
+*/
+    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
+
+    private static final double LAT_RADIUS = 0.007315;
+    private static final double LNG_RADIUS = 0.015789;
+
+    private static final LatLng NEAR_HKI =
+            new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
+    private static final LatLng WEST =
+            new LatLng(HELSINKI.latitude, HELSINKI.longitude - LNG_RADIUS);
+    private static final LatLng NORTH =
+            new LatLng(HELSINKI.latitude + LAT_RADIUS, HELSINKI.longitude);
+    private static final LatLng SOUTH =
+            new LatLng(HELSINKI.latitude - LAT_RADIUS, HELSINKI.longitude);
+    private static final LatLng SOUTHWEST =
+            new LatLng(HELSINKI.latitude - LAT_RADIUS, HELSINKI.longitude - LNG_RADIUS);
+    private static final LatLng NORTHEAST =
+            new LatLng(HELSINKI.latitude + LAT_RADIUS, HELSINKI.longitude + LNG_RADIUS);
 
     private GoogleMap mMap;
     private final List<BitmapDescriptor> mImages = new ArrayList<BitmapDescriptor>();
@@ -155,8 +173,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             for (markerCount = markerStart; markerCount < markerStart + markersPerScreen; markerCount++) { // For each marker in this screen
 
                 // Scale marker locations to the area covered by radar/map
-                float lat = (float) (HELSINKI.latitude - 0.008 + (0.016 * latArray.getFloat(markerCount, 1)));
-                float lng = (float) (HELSINKI.longitude - 0.016059 + (0.032118 * lngArray.getFloat(markerCount, 1)));
+                float lat = (float) (HELSINKI.latitude - LAT_RADIUS + (2 * LAT_RADIUS * latArray.getFloat(markerCount, 1)));
+                float lng = (float) (HELSINKI.longitude - LNG_RADIUS + (2 * LNG_RADIUS * lngArray.getFloat(markerCount, 1)));
 
                 switch (uiStyle) {
 
@@ -206,9 +224,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         mMap.addMarker(new MarkerOptions().position(HELSINKI).title("Your location"));
-        mMap.addMarker(new MarkerOptions().position(WEST).title("West"));
+/*        mMap.addMarker(new MarkerOptions().position(WEST).title("West"));
         mMap.addMarker(new MarkerOptions().position(SOUTH).title("South"));
-
+        mMap.addMarker(new MarkerOptions().position(NORTH).title("North"));
+        mMap.addMarker(new MarkerOptions().position(NORTHEAST).title("Northeast"));
+        mMap.addMarker(new MarkerOptions().position(SOUTHWEST).title("Southwest"));
+*/
         // If UI style requires, adds a radar UI overlay at Punavuori, Helsinki
         if (uiStyle == 0 || uiStyle == 1) {
             mImages.clear();
