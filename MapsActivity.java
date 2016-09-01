@@ -134,7 +134,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // we can also stop the progress bar
             } else {
                 // all things went right
-
                 // parseFoursquare venues search result
                 venuesList = (ArrayList) parseFoursquare(temp);
 
