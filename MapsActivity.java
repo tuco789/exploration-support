@@ -111,7 +111,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private class fourquare extends AsyncTask<Void, Void, String> {
-
         String temp;
 
         @Override
