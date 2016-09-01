@@ -54,12 +54,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private static final LatLng NEAR_HKI =
             new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
-    private static final LatLng WEST =
-            new LatLng(HELSINKI.latitude, HELSINKI.longitude - LNG_RADIUS);
-    private static final LatLng NORTH =
-            new LatLng(HELSINKI.latitude + LAT_RADIUS, HELSINKI.longitude);
-    private static final LatLng SOUTH =
-            new LatLng(HELSINKI.latitude - LAT_RADIUS, HELSINKI.longitude);
     private static final LatLng SOUTHWEST =
             new LatLng(HELSINKI.latitude - LAT_RADIUS, HELSINKI.longitude - LNG_RADIUS);
     private static final LatLng NORTHEAST =
@@ -78,6 +72,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private Vector latList;
     private Vector lngList;
+    private Vector nameList;
     private int[] conf_colors;
     private int[] conf_markers;
     private int colorCount=0;
@@ -91,11 +86,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // the foursquare client_id and the client_secret
     final String CLIENT_ID = "I0C0HY1NYS1KL1FWKW1SUS3SLP2ZBA40PXIOBBT5HTVBPM3A";
     final String CLIENT_SECRET = "WV3QKEIECZW4GJXD1T1X5ZOUYBCADWSHJUJIZTAIICQ23QV5";
-
-    // we will need to take the latitude and the logntitude from a certain point
-    // this is the center of New York
-    final String latitude = "40.7463956";
-    final String longtitude = "-73.9852992";
 
     ArrayAdapter myAdapter;
 
@@ -116,6 +106,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapFragment.getMapAsync(this);
         latList = new Vector();
         lngList = new Vector();
+        nameList = new Vector();
         new fourquare().execute();
     }
 
@@ -127,7 +118,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         protected String doInBackground(Void... urls) {
             // make Call to the url
             // venues/search?sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60
-            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60");
+            // temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60");
+            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=4bf58dd8d48988d16d941735&intent=browse&limit=60");
             return "";
         }
 
@@ -156,6 +148,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 //                    listTitle.add(i, fsVenueTemp.getName() + ", " + fsVenueTemp.getCategory() + "" + fsVenueTemp.getCity());
                     boolean latok = latList.add(fsVenueTemp.getLat());
                     boolean lngok = lngList.add(fsVenueTemp.getLng());
+                    boolean nameok = nameList.add(fsVenueTemp.getName());
                 }
                 // set the results to the list
                 // and show them in the xml
@@ -212,14 +205,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     JSONArray jsonArray = jsonObject.getJSONObject("response").getJSONArray("venues");
                     // {c: .response.venues[].categories[].name}
                     // {c: .response.venues[].location.lng}
+                    // {c: .response.venues[].name}
 
                     for (int i = 0; i<jsonArray.length() ; i++) {
-//                        String nameTemp = jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("name");
                         FoursquareVenue poi = new FoursquareVenue();
                         String latTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lat");
                         String lngTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lng");
+                        String nameTemp = new String(jsonArray.getJSONObject(i).getString("name"));
+                        String catTemp = jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("id");
                         poi.setLat(latTemp);
                         poi.setLng(lngTemp);
+                        poi.setName(nameTemp);
+                        poi.setCategory(catTemp);
                         temp.add(poi);
 //                            poi.setCategory(jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("name"));
                     }
@@ -293,9 +290,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     public void drawMarkers(View view) {
 
-        if (screenCount<conf_colors.length) { // For each screen
+//        if (screenCount<conf_colors.length) { // For each screen
             mMap.clear();
-            int markersPerScreen = 0;
+//            int markersPerScreen = 0;
 
             // Depending on the UI style, set the map type and indicator for user's location
             switch (uiStyle) {
@@ -362,6 +359,20 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 markersPerScreen = markersPerScreen + conf_markers[i];
             }
 */
+
+            for (int i=0; i<venuesList.size(); i++) {
+                FoursquareVenue fsVenueTemp = new FoursquareVenue();
+                fsVenueTemp = (FoursquareVenue) venuesList.get(i);
+                float lat = fsVenueTemp.getLat();
+                float lng = fsVenueTemp.getLng();
+                String title = fsVenueTemp.getName();
+                String category = fsVenueTemp.getCategory();
+                if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
+                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
+                }
+            }
+/*
             markersPerScreen = latList.size();
             for (markerCount = markerStart; markerCount < markerStart + markersPerScreen; markerCount++) { // For each marker in this screen
 
@@ -370,22 +381,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 //                float lng = (float) (HELSINKI.longitude - LNG_RADIUS + (2 * LNG_RADIUS * lngList.getFloat(markerCount, 1)));
                 float lat = (float) latList.get(markerCount);
                 float lng = (float) lngList.get(markerCount);
-
+                String title = (String) nameList.get(markerCount);
                 switch (uiStyle) {
 
                     case 0: case 3: case 4: { // Use dots as markers
                         // Draw markers with the appropriate color i.e. check from conf_color if there was 2nd and 3rd color for this screen and from conf_markers how many markers to print with each color
                         if (markerCount < (markerStart + conf_markers[colorCount])) // If should use the first color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
                         else if (conf_colors[screenCount] > 1 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1]) // If should use the second color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
                         else if (conf_colors[screenCount] > 2 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2]) // If should use the third color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
                         else if (conf_colors[screenCount] > 3 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2] + conf_markers[colorCount + 3]) // If should use the fourth color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_nightlife_25)));
                     break;
                     }
@@ -423,7 +434,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 //            lngList.recycle();
             arraysRecycled = true;
         }
-
+*/
 
 /*        mMap.addMarker(new MarkerOptions().position(WEST).title("West"));
         mMap.addMarker(new MarkerOptions().position(SOUTH).title("South"));
@@ -464,8 +475,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             } */
         }
-        if (screenCount == 0)
-            legend.performClick();
+//        if (screenCount == 0)
+//           legend.performClick();
     }
 
 }
