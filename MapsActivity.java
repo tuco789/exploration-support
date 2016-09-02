@@ -107,18 +107,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         latList = new Vector();
         lngList = new Vector();
         nameList = new Vector();
-        new fourquare().execute();
+        venuesList = new ArrayList();
+        new fourquare().execute("4bf58dd8d48988d16d941735");
+        new fourquare().execute("4bf58dd8d48988d181941735");
+        new fourquare().execute("4bf58dd8d48988d165941735");
     }
 
-    private class fourquare extends AsyncTask<Void, Void, String> {
+    private class fourquare extends AsyncTask<String, Void, String> {
         String temp;
 
         @Override
-        protected String doInBackground(Void... urls) {
+        protected String doInBackground(String... urls) {
             // make Call to the url
             // venues/search?sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60
             // temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60");
-            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=4bf58dd8d48988d16d941735&intent=browse&limit=60");
+            // temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=4bf58dd8d48988d16d941735,4bf58dd8d48988d181941735,4bf58dd8d48988d165941735&intent=browse&limit=60");
+            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=" + urls[0] + "&intent=browse&limit=60");
             return "";
         }
 
@@ -135,19 +139,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             } else {
                 // all things went right
                 // parseFoursquare venues search result
-                venuesList = (ArrayList) parseFoursquare(temp);
+                venuesList.addAll((ArrayList) parseFoursquare(temp));
 
-                List listTitle = new ArrayList();
-                FoursquareVenue fsVenueTemp = new FoursquareVenue();
-                for (int i = 0; i < venuesList.size(); i++) {
+//                List listTitle = new ArrayList();
+//                FoursquareVenue fsVenueTemp = new FoursquareVenue();
+//                for (int i = 0; i < venuesList.size(); i++) {
                     // make a list of the venus that are loaded in the list.
                     // show the name, the category and the city
-                    fsVenueTemp = (FoursquareVenue) venuesList.get(i);
+//                    fsVenueTemp = (FoursquareVenue) venuesList.get(i);
 //                    listTitle.add(i, fsVenueTemp.getName() + ", " + fsVenueTemp.getCategory() + "" + fsVenueTemp.getCity());
-                    boolean latok = latList.add(fsVenueTemp.getLat());
-                    boolean lngok = lngList.add(fsVenueTemp.getLng());
-                    boolean nameok = nameList.add(fsVenueTemp.getName());
-                }
+//                    boolean latok = latList.add(fsVenueTemp.getLat());
+//                    boolean lngok = lngList.add(fsVenueTemp.getLng());
+//                    boolean nameok = nameList.add(fsVenueTemp.getName());
+//            }
                 // set the results to the list
                 // and show them in the xml
                 //myAdapter = new ArrayAdapter(AndroidFoursquare.this, R.layout.row_layout, R.id.listText, listTitle);
@@ -368,6 +372,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
                     mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                             .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
+                } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
+                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
+                } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
+                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
                 }
             }
 /*
