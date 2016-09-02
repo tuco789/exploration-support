@@ -89,8 +89,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     ArrayAdapter myAdapter;
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
