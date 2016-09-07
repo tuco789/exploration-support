@@ -57,12 +57,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             new LatLng(HELSINKI.latitude - 0.008, HELSINKI.longitude);
 */
 //    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
-    private static final LatLng HELSINKI = new LatLng(0.0, 0.0);
+    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
     private static final double LAT_RADIUS = 0.007315;
     private static final double LNG_RADIUS = 0.015789;
 
-    private static final LatLng NEAR_HKI =
-            new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
+//    private static final LatLng NEAR_HKI =
+//            new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
     private static final LatLng SOUTHWEST =
             new LatLng(HELSINKI.latitude - LAT_RADIUS, HELSINKI.longitude - LNG_RADIUS);
     private static final LatLng NORTHEAST =
@@ -80,18 +80,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private int mCurrentEntry = 0;
 
     private int uiStyle = 0;
-
-    private Vector latList;
-    private Vector lngList;
-    private Vector nameList;
-    private int[] conf_colors;
-    private int[] conf_markers;
-    private int colorCount=0;
-    private int markerStart = 0;
-    private int markerCount;
-    private int screenCount = 0;
-    private boolean arraysRecycled = false;
-
     ArrayList venuesList;
 
     // the foursquare client_id and the client_secret
@@ -116,10 +104,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .addApi(LocationServices.API)
                     .build();
         }
-
-        latList = new Vector();
-        lngList = new Vector();
-        nameList = new Vector();
         venuesList = new ArrayList();
     }
 
@@ -232,23 +216,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (result.equals("last")) {
                     legend.performClick();
                 }
-//                List listTitle = new ArrayList();
-//                FoursquareVenue fsVenueTemp = new FoursquareVenue();
-//                for (int i = 0; i < venuesList.size(); i++) {
-                    // make a list of the venus that are loaded in the list.
-                    // show the name, the category and the city
-//                    fsVenueTemp = (FoursquareVenue) venuesList.get(i);
-//                    listTitle.add(i, fsVenueTemp.getName() + ", " + fsVenueTemp.getCategory() + "" + fsVenueTemp.getCity());
-//                    boolean latok = latList.add(fsVenueTemp.getLat());
-//                    boolean lngok = lngList.add(fsVenueTemp.getLng());
-//                    boolean nameok = nameList.add(fsVenueTemp.getName());
-//            }
-                // set the results to the list
-                // and show them in the xml
-                //myAdapter = new ArrayAdapter(AndroidFoursquare.this, R.layout.row_layout, R.id.listText, listTitle);
-                //setListAdapter(myAdapter);
-
-                // Draw the first UI screen
             }
         }
     }
@@ -311,7 +278,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         poi.setName(nameTemp);
                         poi.setCategory(catTemp);
                         temp.add(poi);
-//                            poi.setCategory(jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("name"));
                     }
                 }
             }
@@ -351,35 +317,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .build();                   // Creates a CameraPosition from the builder
             mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
         }
-        // Read the information about configuring the screens from resource file
-        Resources res = getResources();
-//        latList = res.obtainTypedArray(R.array.lat);
-//        lngList = res.obtainTypedArray(R.array.lng);
-        conf_colors = res.getIntArray(R.array.conf_colors);
-        conf_markers = res.getIntArray(R.array.conf_markers);
 
-        //Test consistency of array lengths
-/*        int totalMarkers = 0;
-        int totalColors = 0;
-
-        for (int i=0; i<conf_colors.length; i++){
-            totalColors = totalColors+conf_colors[i];
-        }
-        if (totalColors != conf_markers.length)
-            Log.e(TAG,"conf_markers len mismatch");
-
-        for (int i=0; i<conf_markers.length; i++){
-            totalMarkers = totalMarkers+conf_markers[i];
-        }
-
-        if (totalMarkers != latList.size())
-            Log.e(TAG,"latList len mismatch");
-        if (totalMarkers != lngList.length())
-            Log.e(TAG,"latList len mismatch");
-*/
-        // Draw the first UI screen
+        // Instantiate the legend
         legend = (ImageView)findViewById(R.id.imageView);
-//        legend.performClick();
     }
 
     public void drawMarkers(View view) {
@@ -397,14 +337,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 case 2: case 3: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                     mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
-//                            .zIndex(1.0f)
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
                 }
                 case 4: case 5: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
                     mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
-//                            .zIndex(1.0f)
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
                 }
@@ -448,11 +386,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                    */ break;
                 }
             }
-            // Count the number of markers to be drawn for this screen
-/*            for (int i = colorCount; i < (colorCount + conf_colors[screenCount]); i++) {
-                markersPerScreen = markersPerScreen + conf_markers[i];
-            }
-*/
 
             for (int i=0; i<venuesList.size(); i++) {
                 FoursquareVenue fsVenueTemp = new FoursquareVenue();
@@ -495,76 +428,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 }
             }
-/*
-            markersPerScreen = latList.size();
-            for (markerCount = markerStart; markerCount < markerStart + markersPerScreen; markerCount++) { // For each marker in this screen
 
-                // Scale marker locations to the area covered by radar/map
-//                float lat = (float) (HELSINKI.latitude - LAT_RADIUS + (2 * LAT_RADIUS * latList.getFloat(markerCount, 1)));
-//                float lng = (float) (HELSINKI.longitude - LNG_RADIUS + (2 * LNG_RADIUS * lngList.getFloat(markerCount, 1)));
-                float lat = (float) latList.get(markerCount);
-                float lng = (float) lngList.get(markerCount);
-                String title = (String) nameList.get(markerCount);
-                switch (uiStyle) {
-
-                    case 0: case 3: case 4: { // Use dots as markers
-                        // Draw markers with the appropriate color i.e. check from conf_color if there was 2nd and 3rd color for this screen and from conf_markers how many markers to print with each color
-                        if (markerCount < (markerStart + conf_markers[colorCount])) // If should use the first color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
-                        else if (conf_colors[screenCount] > 1 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1]) // If should use the second color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
-                        else if (conf_colors[screenCount] > 2 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2]) // If should use the third color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
-                        else if (conf_colors[screenCount] > 3 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2] + conf_markers[colorCount + 3]) // If should use the fourth color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_nightlife_25)));
-                    break;
-                    }
-
-                    case 1: case 2: case 5: { // Use icons as markers
-                        // Draw markers with the appropriate color i.e. check from conf_color if there was 2nd and 3rd color for this screen and from conf_markers how many markers to print with each color
-                        if (markerCount < (markerStart + conf_markers[colorCount])) // If should use the first color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_food_25)));
-                        else if (conf_colors[screenCount] > 1 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1]) // If should use the second color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_museum_25)));
-                        else if (conf_colors[screenCount] > 2 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2]) // If should use the third color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_outdoors_25)));
-                        else if (conf_colors[screenCount] > 3 && markerCount < markerStart + conf_markers[colorCount] + conf_markers[colorCount + 1] + conf_markers[colorCount + 2] + conf_markers[colorCount + 3]) // If should use the fourth color
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title("Marker " + markerCount)
-                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_nightlife_25)));
-                    break;
-                    }
-                }
-
-            }
-            markerStart = markerStart + markersPerScreen;
-            colorCount = colorCount + conf_colors[screenCount];
-            screenCount++;
-        } else if (uiStyle < 6) {
-            // Switch to new UI style and start over for next screen
-            uiStyle++;
-            markerStart = 0;
-            colorCount = 0;
-            screenCount = 0;
-        } else if (!arraysRecycled) { // If drawn all the screens for all UI styles, recycle the resources
-//            latList.recycle();
-//            lngList.recycle();
-            arraysRecycled = true;
-        }
-*/
-
-/*        mMap.addMarker(new MarkerOptions().position(WEST).title("West"));
-        mMap.addMarker(new MarkerOptions().position(SOUTH).title("South"));
-        mMap.addMarker(new MarkerOptions().position(NORTH).title("North"));
-        mMap.addMarker(new MarkerOptions().position(NORTHEAST).title("Northeast"));
-        mMap.addMarker(new MarkerOptions().position(SOUTHWEST).title("Southwest"));
-*/
         // If UI style requires, adds a radar UI or black square overlay at Punavuori, Helsinki
         switch (uiStyle) {
             case 0: case 1: {
@@ -599,9 +463,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             } */
         }
-        uiStyle++;
-//        if (screenCount == 0)
-//           legend.performClick();
+        if (uiStyle < 5)
+            uiStyle++;
+        else
+            uiStyle = 0;
     }
-
 }
