@@ -125,9 +125,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         lngList = new Vector();
         nameList = new Vector();
         venuesList = new ArrayList();
-//        new fourquare().execute("4bf58dd8d48988d16d941735");
-//        new fourquare().execute("4bf58dd8d48988d181941735");
-//        new fourquare().execute("4bf58dd8d48988d165941735");
     }
 
     protected void onStart() {
