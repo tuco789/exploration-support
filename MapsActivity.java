@@ -1,14 +1,23 @@
 package fi.aalto.ming.uitestscreens;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.location.Location;
 import android.os.AsyncTask;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -36,9 +45,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-    private static final String TAG = "fi.aalto.ming.MapsActivity";
+    private static final String TAG = "MapsActivity";
 /*    private static final LatLng HELSINKI = new LatLng(60.160999, 24.944800);
     private static final LatLng NEAR_HKI =
             new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
@@ -47,8 +56,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final LatLng SOUTH =
             new LatLng(HELSINKI.latitude - 0.008, HELSINKI.longitude);
 */
-    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
-
+//    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
+    private static final LatLng HELSINKI = new LatLng(0.0, 0.0);
     private static final double LAT_RADIUS = 0.007315;
     private static final double LNG_RADIUS = 0.015789;
 
@@ -62,6 +71,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private GoogleMap mMap;
     private final List<BitmapDescriptor> mImages = new ArrayList<BitmapDescriptor>();
     private UiSettings mUiSettings;
+    private GoogleApiClient mGoogleApiClient;
+    private Location mLastLocation;
 
     private GroundOverlay mGroundOverlay;
     ImageView legend;
@@ -97,17 +108,99 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
         setSupportActionBar(myToolbar);
 
+        // Create an instance of GoogleAPIClient.
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
+        }
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+//        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+//                .findFragmentById(R.id.map);
+//        mapFragment.getMapAsync(this);
         latList = new Vector();
         lngList = new Vector();
         nameList = new Vector();
         venuesList = new ArrayList();
-        new fourquare().execute("4bf58dd8d48988d16d941735");
-        new fourquare().execute("4bf58dd8d48988d181941735");
-        new fourquare().execute("4bf58dd8d48988d165941735");
+//        new fourquare().execute("4bf58dd8d48988d16d941735");
+//        new fourquare().execute("4bf58dd8d48988d181941735");
+//        new fourquare().execute("4bf58dd8d48988d165941735");
+    }
+
+    protected void onStart() {
+        mGoogleApiClient.connect();
+        super.onStart();
+    }
+
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
+    }
+
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 51);
+        } else {
+            fetchVenues();
+        }
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        // Refer to the javadoc for ConnectionResult to see what error codes might be returned in
+        // onConnectionFailed.
+        Log.i(TAG, "Connection failed: Error Code = " + result.getErrorCode());
+    }
+
+    @Override
+    public void onConnectionSuspended(int cause) {
+        // The connection to Google Play services was lost for some reason. We call connect() to
+        // attempt to re-establish the connection.
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case 51: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                    // permission was granted, yay! Do the
+                    // location-related task you need to do.
+                    fetchVenues();
+                } else {
+
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+
+            // other 'case' lines to check for other
+            // permissions this app might request
+        }
+    }
+
+    private void fetchVenues() {
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+
+        new fourquare().execute("4bf58dd8d48988d16d941735","");
+        new fourquare().execute("4bf58dd8d48988d181941735","");
+        new fourquare().execute("4bf58dd8d48988d165941735","last");
     }
 
     private class fourquare extends AsyncTask<String, Void, String> {
@@ -119,8 +212,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             // venues/search?sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60
             // temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=60.158345,24.930203&ne=60.169805,24.953239&categoryId=4bf58dd8d48988d1e0931735&intent=browse&limit=60");
             // temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=4bf58dd8d48988d16d941735,4bf58dd8d48988d181941735,4bf58dd8d48988d165941735&intent=browse&limit=60");
-            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + SOUTHWEST.latitude + "," + SOUTHWEST.longitude + "&ne=" + NORTHEAST.latitude + "," + NORTHEAST.longitude + "&categoryId=" + urls[0] + "&intent=browse&limit=60");
-            return "";
+            LatLng sw = SOUTHWEST;
+            LatLng ne = NORTHEAST;
+            if (mLastLocation != null) {
+                sw = new LatLng(mLastLocation.getLatitude() - LAT_RADIUS, mLastLocation.getLongitude() - LNG_RADIUS);
+                ne = new LatLng(mLastLocation.getLatitude() + LAT_RADIUS, mLastLocation.getLongitude() + LNG_RADIUS);
+            }
+            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + sw.latitude + "," + sw.longitude + "&ne=" + ne.latitude + "," + ne.longitude + "&categoryId=" + urls[0] + "&intent=browse&limit=60");
+            return urls[1];
         }
 
         @Override
@@ -137,7 +236,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // all things went right
                 // parseFoursquare venues search result
                 venuesList.addAll((ArrayList) parseFoursquare(temp));
-
+                if (result.equals("last")) {
+                    legend.performClick();
+                }
 //                List listTitle = new ArrayList();
 //                FoursquareVenue fsVenueTemp = new FoursquareVenue();
 //                for (int i = 0; i < venuesList.size(); i++) {
@@ -246,16 +347,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mUiSettings.setZoomGesturesEnabled(false);
         mUiSettings.setTiltGesturesEnabled(false);
         mUiSettings.setRotateGesturesEnabled(false);
-        mUiSettings.setCompassEnabled(false);
+        mUiSettings.setCompassEnabled(true);
 
         // Move the camera
-        CameraPosition cameraPosition = new CameraPosition.Builder()
-                .target(NEAR_HKI)           // Sets the center of the map to fit the UI overlay on screen
-                .zoom(14)                   // Sets the zoom to fit the UI overlay on screen
-                .bearing(180)               // Sets the orientation of the camera to south
-                .build();                   // Creates a CameraPosition from the builder
-        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
-
+        if (mLastLocation != null) {
+            CameraPosition cameraPosition = new CameraPosition.Builder()
+                    .target(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude() - 0.0001))           // Sets the center of the map to fit the UI overlay on screen
+                    .zoom(14)                   // Sets the zoom to fit the UI overlay on screen
+                    .bearing(180)               // Sets the orientation of the camera to south
+                    .build();                   // Creates a CameraPosition from the builder
+            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        }
         // Read the information about configuring the screens from resource file
         Resources res = getResources();
 //        latList = res.obtainTypedArray(R.array.lat);
@@ -301,14 +403,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
                 case 2: case 3: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-                    mMap.addMarker(new MarkerOptions().position(HELSINKI).title("Your location")
+                    mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
 //                            .zIndex(1.0f)
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
                 }
                 case 4: case 5: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
-                    mMap.addMarker(new MarkerOptions().position(HELSINKI).title("Your location")
+                    mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
 //                            .zIndex(1.0f)
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
@@ -319,38 +421,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             // Set the legend based on UI style
             switch (uiStyle) {
                 case 0: case 3: case 4: { // Use a legend with dots
-                    switch (conf_colors[screenCount]) {
-                        case 2: {
-                            legend.setImageDrawable(res.getDrawable(R.drawable.legend2dots, null));
-                            break;
-                        }
+        /*            switch (conf_colors[screenCount]) {
+                          case 2: {
+                              legend.setImageDrawable(res.getDrawable(R.drawable.legend2dots, null));
+                              break;
+                          }
                         case 3: {
-                            legend.setImageDrawable(res.getDrawable(R.drawable.legend3dots, null));
-                            break;
+                   */         legend.setImageDrawable(res.getDrawable(R.drawable.legend3dots, null));
+                  /*          break;
                         }
                         case 4: {
                             legend.setImageDrawable(res.getDrawable(R.drawable.legend4dots, null));
                             break;
                         }
                     }
-                    break;
+              */      break;
                 }
                 case 1: case 2: case 5: { // Use a legend with icons
-                    switch (conf_colors[screenCount]) {
+                /*    switch (conf_colors[screenCount]) {
                         case 2: {
                             legend.setImageDrawable(res.getDrawable(R.drawable.legend2icons, null));
                             break;
                         }
                         case 3: {
-                            legend.setImageDrawable(res.getDrawable(R.drawable.legend3icons, null));
-                            break;
+                 */           legend.setImageDrawable(res.getDrawable(R.drawable.legend3icons, null));
+                 /*           break;
                         }
                         case 4: {
                             legend.setImageDrawable(res.getDrawable(R.drawable.legend4icons, null));
                             break;
                         }
                     }
-                    break;
+                   */ break;
                 }
             }
             // Count the number of markers to be drawn for this screen
@@ -366,15 +468,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 float lng = fsVenueTemp.getLng();
                 String title = fsVenueTemp.getName();
                 String category = fsVenueTemp.getCategory();
-                if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
-                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
-                } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
-                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
-                } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
-                    mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
-                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
+                switch (uiStyle) {
+                    case 0:
+                    case 3:
+                    case 4: { // Use dots as markers
+                        if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
+                        } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
+                        } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
+                        }
+                        break;
+                    }
+                    case 1:
+                    case 2:
+                    case 5: { // Use dots as markers
+                        if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_food_25)));
+                        } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_museum_25)));
+                        } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_outdoors_25)));
+                        }
+                        break;
+                    }
+
                 }
             }
 /*
@@ -454,7 +579,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.radar_sq));
                 mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(mImages.get(mCurrentEntry)).anchor(0.495f, 0.5f)
-                        .position(HELSINKI, 1969f, 1969f)
+                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 1969f, 1969f)
                         .bearing(180));
             break;
             }
@@ -463,10 +588,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.black_sq));
                 mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(mImages.get(mCurrentEntry)).anchor(0.495f, 0.5f)
-                        .position(HELSINKI, 1969f, 1969f)
+                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 1969f, 1969f)
                         .bearing(180));
                 break;
             }
+
         // Draw radar shape on top of the map
             /*            case 2: case 3: {
                 mImages.clear();
@@ -480,6 +606,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             } */
         }
+        uiStyle++;
 //        if (screenCount == 0)
 //           legend.performClick();
     }
