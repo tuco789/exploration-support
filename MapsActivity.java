@@ -1,22 +1,38 @@
 package fi.aalto.ming.uitestscreens;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.content.res.TypedArray;
+import android.hardware.GeomagneticField;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorManager;
+import android.hardware.SensorEventListener;
 import android.location.Location;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
+import android.widget.ListView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -29,6 +45,7 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.GroundOverlayOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.apache.http.HttpResponse;
@@ -42,21 +59,26 @@ import org.json.JSONObject;
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Vector;
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, SensorEventListener, LocationListener, GoogleMap.OnInfoWindowClickListener {
 
     private static final String TAG = "MapsActivity";
-/*    private static final LatLng HELSINKI = new LatLng(60.160999, 24.944800);
-    private static final LatLng NEAR_HKI =
-            new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.0001);
-    private static final LatLng WEST =
-            new LatLng(HELSINKI.latitude, HELSINKI.longitude - 0.016059);
-    private static final LatLng SOUTH =
-            new LatLng(HELSINKI.latitude - 0.008, HELSINKI.longitude);
-*/
-//    private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
+
+    private String[] mDrawerItems;
+    private DrawerLayout mDrawerLayout;
+    private ListView mDrawerList;
+    ActionBarDrawerToggle mDrawerToggle;
+    private String[] venue_ids;
+    private LinkedList selected_ids;
+    private String[] old_building_names;
+    private TypedArray old_building_lat;
+    private TypedArray old_building_lng;
+
+    private Toolbar myToolbar;
+
     private static final LatLng HELSINKI = new LatLng(60.168928, 24.937195);
     private static final double LAT_RADIUS = 0.007315;
     private static final double LNG_RADIUS = 0.015789;
@@ -73,6 +95,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private UiSettings mUiSettings;
     private GoogleApiClient mGoogleApiClient;
     private Location mLastLocation;
+    private SensorManager mSensorManager;
+    private float[] mRotationMatrix = new float[16];
+    private float mDeclination;
 
     private GroundOverlay mGroundOverlay;
     ImageView legend;
@@ -93,8 +118,65 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_maps);
-        Toolbar myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
-        setSupportActionBar(myToolbar);
+        myToolbar = (Toolbar) findViewById(R.id.my_toolbar);
+
+        // Instantiate the legend
+        legend = (ImageView)findViewById(R.id.imageView);
+
+        selected_ids = new LinkedList();
+        Resources res = getResources();
+        mDrawerItems = res.getStringArray(R.array.venue_types);
+        venue_ids = res.getStringArray(R.array.venue_ids);
+        old_building_names = res.getStringArray(R.array.old_building_names);
+        old_building_lat = res.obtainTypedArray(R.array.old_building_lat);
+        old_building_lng = res.obtainTypedArray(R.array.old_building_lng);
+
+//        selected_ids.add("47");
+        for (int i=0; i<venue_ids.length; i++)
+            selected_ids.add(venue_ids[i]);
+
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mDrawerList = (ListView) findViewById(R.id.drawer);
+
+        if (myToolbar != null) {
+            myToolbar.setTitle("Navigation Drawer");
+            setSupportActionBar(myToolbar);
+        }
+
+        // Set the adapter for the list view
+        mDrawerList.setAdapter(new ArrayAdapter<String>(this,
+                R.layout.drawer_multi_item, mDrawerItems));
+        // Set the list's click listener
+        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
+
+        mDrawerToggle = new ActionBarDrawerToggle(
+                this,                  /* host Activity */
+                mDrawerLayout,         /* DrawerLayout object */
+                myToolbar,  /* nav drawer icon to replace 'Up' caret */
+                R.string.navigation_drawer_open,  /* "open drawer" description */
+                R.string.navigation_drawer_close  /* "close drawer" description */
+        ) {
+
+            /** Called when a drawer has settled in a completely closed state. */
+            public void onDrawerClosed(View view) {
+            super.onDrawerClosed(view);
+            fetchVenues();
+        }
+
+            /** Called when a drawer has settled in a completely open state. */
+        public void onDrawerOpened(View drawerView) {
+            super.onDrawerOpened(drawerView);
+            selected_ids.clear();
+            mDrawerList.clearChoices();
+            for (int i = 0; i < mDrawerList.getCount(); i++)
+                mDrawerList.setItemChecked(i, false);
+            venuesList.clear();
+        }
+        };
+
+        // Set the drawer toggle as the DrawerListener
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
+
 
         // Create an instance of GoogleAPIClient.
         if (mGoogleApiClient == null) {
@@ -104,6 +186,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .addApi(LocationServices.API)
                     .build();
         }
+
+        // initialize your android device sensor capabilities
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+
         venuesList = new ArrayList();
     }
 
@@ -115,6 +201,23 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onStop() {
         mGoogleApiClient.disconnect();
         super.onStop();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // for the system's orientation sensor registered listeners
+        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),
+                SensorManager.SENSOR_STATUS_ACCURACY_LOW);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        // to stop the listener and save battery
+        mSensorManager.unregisterListener(this);
     }
 
     @Override
@@ -168,16 +271,40 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void fetchVenues() {
+        // Get the location of the device
         mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
 
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
-        new fourquare().execute("4bf58dd8d48988d16d941735","");
-        new fourquare().execute("4bf58dd8d48988d181941735","");
-        new fourquare().execute("4bf58dd8d48988d165941735","last");
+        float[] distance = new float[1];
+        if (selected_ids.size() > 0) {
+            for (int i = 0; i < selected_ids.size() - 1; i++) {
+                String id = (String) selected_ids.get(i);
+                if (id.equals("47")) {
+                    for (int j=0; j<old_building_names.length; j++) {
+                        Location.distanceBetween((double) old_building_lat.getFloat(j, 0.0f), (double) old_building_lng.getFloat(j, 0.0f), mLastLocation.getLatitude(), mLastLocation.getLongitude(), distance);
+                        if (distance[0]<800)
+                            venuesList.add(new FoursquareVenue(old_building_names[j], id, old_building_lat.getFloat(j, 0.0f), old_building_lng.getFloat(j, 0.0f)));
+                    }
+                } else
+                    new fourquare().execute(id, "");
+            }
+            if (selected_ids.get(selected_ids.size() - 1).equals("47")) {
+                for (int j = 0; j < old_building_names.length; j++) {
+                    Location.distanceBetween((double) old_building_lat.getFloat(j, 0.0f), (double) old_building_lng.getFloat(j, 0.0f), mLastLocation.getLatitude(), mLastLocation.getLongitude(), distance);
+                    if (distance[0] < 900)
+                        venuesList.add(new FoursquareVenue(old_building_names[j], "47", old_building_lat.getFloat(j, 0.0f), old_building_lng.getFloat(j, 0.0f)));
+                }
+                if (selected_ids.size() == 1) { // If no other category is selected, we can draw the map already
+                    if (uiStyle > 0)
+                        uiStyle--;
+                    legend.performClick();
+                }
+            } else
+                new fourquare().execute((String) selected_ids.get(selected_ids.size() - 1), "last"); // This is the last venue id, so make the Foursquare call AND draw the map
+        }
     }
 
     private class fourquare extends AsyncTask<String, Void, String> {
@@ -214,6 +341,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 // parseFoursquare venues search result
                 venuesList.addAll((ArrayList) parseFoursquare(temp));
                 if (result.equals("last")) {
+                    if (uiStyle > 0)
+                        uiStyle--;
                     legend.performClick();
                 }
             }
@@ -271,12 +400,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         FoursquareVenue poi = new FoursquareVenue();
                         String latTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lat");
                         String lngTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lng");
-                        String nameTemp = new String(jsonArray.getJSONObject(i).getString("name"));
+                        String nameTemp = jsonArray.getJSONObject(i).getString("name");
                         String catTemp = jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("id");
+                        String idTemp = jsonArray.getJSONObject(i).getString("id");
                         poi.setLat(latTemp);
                         poi.setLng(lngTemp);
                         poi.setName(nameTemp);
                         poi.setCategory(catTemp);
+                        poi.setId(idTemp);
                         temp.add(poi);
                     }
                 }
@@ -299,66 +430,75 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
+        mMap.setOnInfoWindowClickListener(this);
 
         // Disable controls
         mUiSettings = mMap.getUiSettings();
-        mUiSettings.setScrollGesturesEnabled(false);
-        mUiSettings.setZoomGesturesEnabled(false);
         mUiSettings.setTiltGesturesEnabled(false);
-        mUiSettings.setRotateGesturesEnabled(false);
-        mUiSettings.setCompassEnabled(true);
+        mUiSettings.setCompassEnabled(false);
+    }
+
+    public void drawMarkers(View view) {
+        mMap.clear();
 
         // Move the camera
         if (mLastLocation != null) {
             CameraPosition cameraPosition = new CameraPosition.Builder()
                     .target(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude() - 0.0001))           // Sets the center of the map to fit the UI overlay on screen
                     .zoom(14)                   // Sets the zoom to fit the UI overlay on screen
-                    .bearing(180)               // Sets the orientation of the camera to south
+//                    .bearing(0)               // Sets the orientation of the camera to north
                     .build();                   // Creates a CameraPosition from the builder
             mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
         }
-
-        // Instantiate the legend
-        legend = (ImageView)findViewById(R.id.imageView);
-    }
-
-    public void drawMarkers(View view) {
-
-//        if (screenCount<conf_colors.length) { // For each screen
-            mMap.clear();
-//            int markersPerScreen = 0;
 
             // Depending on the UI style, set the map type and indicator for user's location
             switch (uiStyle) {
                 case 0: case 1: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
+                    mUiSettings.setScrollGesturesEnabled(false);
+                    mUiSettings.setZoomGesturesEnabled(false);
+                    mUiSettings.setRotateGesturesEnabled(false);
                     break;
                 }
                 case 2: case 3: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+                    mUiSettings.setScrollGesturesEnabled(true);
+                    mUiSettings.setZoomGesturesEnabled(true);
                     mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
                 }
                 case 4: case 5: {
                     mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
+                    mUiSettings.setScrollGesturesEnabled(false);
+                    mUiSettings.setZoomGesturesEnabled(false);
+                    mUiSettings.setRotateGesturesEnabled(false);
                     mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude())).title("Your location")
                             .icon(BitmapDescriptorFactory.defaultMarker(150f)));
                     break;
                 }
-            }
+                case 6: case 7: {
+                    mMap.setMapType(GoogleMap.MAP_TYPE_NONE);
+                    mUiSettings.setScrollGesturesEnabled(false);
+                    mUiSettings.setZoomGesturesEnabled(false);
+                    mUiSettings.setRotateGesturesEnabled(false);
+                    break;
+                    }
+                }
+
 
             Resources res = getResources();
             // Set the legend based on UI style
             switch (uiStyle) {
-                case 0: case 3: case 4: { // Use a legend with dots
+                case 0: case 3: case 4: case 6: { // Use a legend with dots
         /*            switch (conf_colors[screenCount]) {
                           case 2: {
                               legend.setImageDrawable(res.getDrawable(R.drawable.legend2dots, null));
                               break;
                           }
                         case 3: {
-                   */         legend.setImageDrawable(res.getDrawable(R.drawable.legend3dots, null));
+                   */           legend.setImageDrawable(res.getDrawable(R.drawable.legend4dots, null));
                   /*          break;
                         }
                         case 4: {
@@ -368,14 +508,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
               */      break;
                 }
-                case 1: case 2: case 5: { // Use a legend with icons
+                case 1: case 2: case 5: case 7: { // Use a legend with icons
                 /*    switch (conf_colors[screenCount]) {
                         case 2: {
                             legend.setImageDrawable(res.getDrawable(R.drawable.legend2icons, null));
                             break;
                         }
                         case 3: {
-                 */           legend.setImageDrawable(res.getDrawable(R.drawable.legend3icons, null));
+                 */           legend.setImageDrawable(res.getDrawable(R.drawable.legend4icons, null));
                  /*           break;
                         }
                         case 4: {
@@ -394,35 +534,82 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 float lng = fsVenueTemp.getLng();
                 String title = fsVenueTemp.getName();
                 String category = fsVenueTemp.getCategory();
+                Marker marker;
                 switch (uiStyle) {
                     case 0:
                     case 3:
-                    case 4: { // Use dots as markers
-                        if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                    case 4:
+                    case 6: { // Use dots as markers
+                        if (category.equals("4bf58dd8d48988d16d941735") || category.equals("4bf58dd8d48988d155941735") ||
+                                category.equals("4bf58dd8d48988d10f941735") || category.equals("4bf58dd8d48988d110941735") ||
+                                category.equals("5283c7b4e4b094cb91ec88d7") || category.equals("4bf58dd8d48988d1c1941735") ||
+                                category.equals("52e81612bcbc57f1066b79f9") || category.equals("4bf58dd8d48988d1c6941735") ||
+                                category.equals("4bf58dd8d48988d1c4941735")) { //Cafe, Gastropub, Indian, Italian, Kebab, Modern European, Scandinavian resta, or just resta
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_food_25)));
-                        } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d181941735") || category.equals("47")) { //Museum or Old Building
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_museum_25)));
-                        } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d165941735") || category.equals("56aa371be4b08b9a8d573544") ||
+                                category.equals("52e81612bcbc57f1066b7a22") || category.equals("56aa371be4b08b9a8d573562") ||
+                                category.equals("56aa371be4b08b9a8d573547") || category.equals("4bf58dd8d48988d15a941735") ||
+                                category.equals("4bf58dd8d48988d1e0941735") || category.equals("4bf58dd8d48988d163941735") ||
+                                category.equals("4bf58dd8d48988d1e2941735")) { //Scenic Lookout, Bay, Botanical garden, Canal, Fountain, Garden, Harbor, Park or Beach
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_outdoors_25)));
-                        }
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d1fd941735") || category.equals("5744ccdfe4b0c0459246b4dc") ||
+                                category.equals("4bf58dd8d48988d1f6941735")) { //Shopping Mall, Shopping Plaza, Department Store
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_nightlife_25)));
+                            marker.setTag(fsVenueTemp.getId());
+/*                        } else if (category.equals("4d4b7105d754a06376d81259") || category.equals("4bf58dd8d48988d120941735") ||
+                                category.equals("4bf58dd8d48988d11b941735") || category.equals("4bf58dd8d48988d11f941735") ||
+                                category.equals("50327c8591d4c4b30a586d5d") || category.equals("4bf58dd8d48988d116941735") ||
+                                category.equals("4bf58dd8d48988d11e941735")) { //Nightlife, Karaoke Bar, Pub, Nightclub, Brewery, Bar or Cocktail Bar
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.dot_nightlife_25)));
+*/                        }
                         break;
                     }
                     case 1:
                     case 2:
-                    case 5: { // Use dots as markers
-                        if (category.equals("4bf58dd8d48988d16d941735")) { //Cafe
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                    case 5:
+                    case 7: { // Use icons as markers
+                        if (category.equals("4bf58dd8d48988d16d941735") || category.equals("4bf58dd8d48988d155941735") ||
+                                category.equals("4bf58dd8d48988d10f941735") || category.equals("4bf58dd8d48988d110941735") ||
+                                category.equals("5283c7b4e4b094cb91ec88d7") || category.equals("4bf58dd8d48988d1c1941735") ||
+                                category.equals("52e81612bcbc57f1066b79f9") || category.equals("4bf58dd8d48988d1c6941735") ||
+                                category.equals("4bf58dd8d48988d1c4941735")) { //Cafe, Gastropub, Indian, Italian, Kebab, Modern European, Scandinavian resta, or just resta
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_food_25)));
-                        } else if (category.equals("4bf58dd8d48988d181941735")) { //Museum
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d181941735") || category.equals("47")) { //Museum or Old Building
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_museum_25)));
-                        } else if (category.equals("4bf58dd8d48988d165941735")) { //Scenic Lookout
-                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d165941735") || category.equals("56aa371be4b08b9a8d573544") ||
+                                category.equals("52e81612bcbc57f1066b7a22") || category.equals("56aa371be4b08b9a8d573562") ||
+                                category.equals("56aa371be4b08b9a8d573547") || category.equals("4bf58dd8d48988d15a941735") ||
+                                category.equals("4bf58dd8d48988d1e0941735") || category.equals("4bf58dd8d48988d163941735") ||
+                                category.equals("4bf58dd8d48988d1e2941735")) { //Scenic Lookout, Bay, Botanical garden, Canal, Fountain, Garden, Harbor, Park or Beach
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_outdoors_25)));
-                        }
+                            marker.setTag(fsVenueTemp.getId());
+                        } else if (category.equals("4bf58dd8d48988d1fd941735") || category.equals("5744ccdfe4b0c0459246b4dc") ||
+                                category.equals("4bf58dd8d48988d1f6941735")) { //Shopping Mall, Shopping Plaza, Department Store
+                            marker = mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_shopping_24)));
+                            marker.setTag(fsVenueTemp.getId());
+/*                        } else if (category.equals("4d4b7105d754a06376d81259") || category.equals("4bf58dd8d48988d120941735") ||
+                                category.equals("4bf58dd8d48988d11b941735") || category.equals("4bf58dd8d48988d11f941735") ||
+                                category.equals("50327c8591d4c4b30a586d5d") || category.equals("4bf58dd8d48988d116941735") ||
+                                category.equals("4bf58dd8d48988d11e941735")) { //Nightlife, Karaoke Bar, Pub, Nightclub, Brewery, Bar or Cocktail Bar
+                            mMap.addMarker(new MarkerOptions().position(new LatLng(lat, lng)).title(title)
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_bkg_nightlife_25)));
+*/                        }
                         break;
                     }
 
@@ -433,11 +620,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         switch (uiStyle) {
             case 0: case 1: {
                 mImages.clear();
-                mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.radar_sq));
+                mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.radar_sq_1000));
                 mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(mImages.get(mCurrentEntry)).anchor(0.495f, 0.5f)
-                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 1969f, 1969f)
-                        .bearing(180));
+                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 3150f, 3150f));
+//                        .bearing(180));
             break;
             }
             case 4: case 5: {
@@ -445,8 +632,17 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.black_sq));
                 mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(mImages.get(mCurrentEntry)).anchor(0.495f, 0.5f)
-                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 1969f, 1969f)
-                        .bearing(180));
+                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 3150f, 3150f));
+//                        .bearing(180));
+                break;
+            }
+            case 6: case 7: {
+                mImages.clear();
+                mImages.add(BitmapDescriptorFactory.fromResource(R.drawable.radar_sq_1000));
+                mGroundOverlay = mMap.addGroundOverlay(new GroundOverlayOptions()
+                        .image(mImages.get(mCurrentEntry)).anchor(0.495f, 0.5f)
+                        .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()), 3150f, 3150f));
+//                        .bearing(180));
                 break;
             }
 
@@ -463,9 +659,109 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             } */
         }
-        if (uiStyle < 5)
-            uiStyle++;
-        else
+        if (uiStyle > 6)
             uiStyle = 0;
+        uiStyle++;
+    }
+
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            if (venue_ids[position].equals("47"))
+                selected_ids.addFirst(venue_ids[position]);
+            else
+                selected_ids.add(venue_ids[position]);
+        }
+    }
+
+    @Override
+    protected void onPostCreate(Bundle savedInstanceState) {
+        super.onPostCreate(savedInstanceState);
+        // Sync the toggle state after onRestoreInstanceState has occurred.
+        mDrawerToggle.syncState();
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        mDrawerToggle.onConfigurationChanged(newConfig);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.my, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Pass the event to ActionBarDrawerToggle, if it returns
+        // true, then it has handled the app icon touch event
+        if (mDrawerToggle.onOptionsItemSelected(item)) {
+            return true;
+        }
+        // Handle your other action bar items...
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        GeomagneticField field = new GeomagneticField(
+                (float)location.getLatitude(),
+                (float)location.getLongitude(),
+                (float)location.getAltitude(),
+                System.currentTimeMillis()
+        );
+
+        // getDeclination returns degrees
+        mDeclination = field.getDeclination();
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+
+        if(event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            SensorManager.getRotationMatrixFromVector(
+                    mRotationMatrix , event.values);
+            float[] orientation = new float[3];
+            SensorManager.getOrientation(mRotationMatrix, orientation);
+            float bearing = (float)Math.toDegrees(orientation[0]) + mDeclination;
+            updateCamera(bearing);
+            if (uiStyle-1 == 0 || uiStyle-1 == 1)
+                if (mGroundOverlay != null)
+                    mGroundOverlay.setBearing(bearing);
+//            bearing_old = bearing;
+        }
+
+       /* IF NEEDS TO LIMIT THE AMOUNT OF UPDATES
+            if (Math.abs(Math.toDegrees(orientation[0]) - angle) > 0.8) {
+                float bearing = (float) Math.toDegrees(orientation[0]) + mDeclination;
+                updateCamera(bearing);
+            }
+            angle = Math.toDegrees(orientation[0]);
+        */
+
+    }
+
+    private void updateCamera(float bearing) {
+        if (mMap != null) {
+            CameraPosition oldPos = mMap.getCameraPosition();
+            CameraPosition pos = CameraPosition.builder(oldPos).bearing(bearing).build();
+            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // not in use
+    }
+
+    @Override
+    public void onInfoWindowClick(final Marker marker) {
+        String venueId = (String)marker.getTag();
+        Uri fsUri = Uri.parse("https://foursquare.com/venue/" + venueId);
+        Intent launchFS = new Intent(Intent.ACTION_VIEW, fsUri);
+        startActivity(launchFS);
     }
 }

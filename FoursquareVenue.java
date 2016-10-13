@@ -3,7 +3,7 @@ package fi.aalto.ming.uitestscreens;
 public class FoursquareVenue {
     private String name;
     private String city;
-
+    private String id;
     private String category;
     private float lat;
     private float lng;
@@ -12,6 +12,14 @@ public class FoursquareVenue {
         this.name = "";
         this.city = "";
         this.setCategory("");
+    }
+    public FoursquareVenue(String nameArg, String categoryArg, float latArg, float lngArg) {
+        this.name = nameArg;
+        this.city = "";
+        this.id = "";
+        this.setCategory(categoryArg);
+        this.lat = latArg;
+        this.lng = lngArg;
     }
 
     public String getCity() {
@@ -42,6 +50,14 @@ public class FoursquareVenue {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String venueid) {
+        this.id = venueid;
     }
 
     public void setLat(String latitude) {
