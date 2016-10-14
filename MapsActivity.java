@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -29,6 +31,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -106,6 +109,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private int uiStyle = 0;
     ArrayList venuesList;
+    ArrayList photoUrlList;
+    private static final String imDimensions = "height300";
 
     // the foursquare client_id and the client_secret
     final String CLIENT_ID = "I0C0HY1NYS1KL1FWKW1SUS3SLP2ZBA40PXIOBBT5HTVBPM3A";
@@ -191,6 +196,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
         venuesList = new ArrayList();
+        photoUrlList = new ArrayList();
     }
 
     protected void onStart() {
@@ -289,7 +295,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             venuesList.add(new FoursquareVenue(old_building_names[j], id, old_building_lat.getFloat(j, 0.0f), old_building_lng.getFloat(j, 0.0f)));
                     }
                 } else
-                    new fourquare().execute(id, "");
+                    new foursquareVenueSearch().execute(id, "");
             }
             if (selected_ids.get(selected_ids.size() - 1).equals("47")) {
                 for (int j = 0; j < old_building_names.length; j++) {
@@ -303,11 +309,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     legend.performClick();
                 }
             } else
-                new fourquare().execute((String) selected_ids.get(selected_ids.size() - 1), "last"); // This is the last venue id, so make the Foursquare call AND draw the map
+                new foursquareVenueSearch().execute((String) selected_ids.get(selected_ids.size() - 1), "last"); // This is the last venue id, so make the Foursquare call AND draw the map
         }
     }
 
-    private class fourquare extends AsyncTask<String, Void, String> {
+    private class foursquareVenueSearch extends AsyncTask<String, Void, String> {
         String temp;
 
         @Override
@@ -339,7 +345,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             } else {
                 // all things went right
                 // parseFoursquare venues search result
-                venuesList.addAll((ArrayList) parseFoursquare(temp));
+                venuesList.addAll((ArrayList) parseFoursquareVenueList(temp));
                 if (result.equals("last")) {
                     if (uiStyle > 0)
                         uiStyle--;
@@ -348,6 +354,48 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     }
+
+    private class foursquarePhotoFetch extends AsyncTask<String, Void, String> {
+        String temp;
+
+        @Override
+        protected String doInBackground(String... urls) {
+            // https://api.foursquare.com/v2/venues/VENUE_ID/photos
+            temp = makeCall("https://api.foursquare.com/v2/venues/" + urls[0] + "/photos?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815");
+            return urls[1];
+        }
+
+        @Override
+        protected void onPreExecute() {
+            // we can start a progress bar here
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            if (temp == null) {
+                // we have an error to the call
+                // we can also stop the progress bar
+            } else {
+                // all things went right
+                // parseFoursquare venue photo url result
+                ArrayList tempAL = (ArrayList) parsePhotoUrlList(temp);
+                if (tempAL == null)
+                    Toast.makeText(getApplicationContext(), "No photos to parse", Toast.LENGTH_SHORT).show();
+                else
+                    photoUrlList.addAll(tempAL);
+                if (result.equals("last")) {
+                    // Fetch images using URLs
+                    Toast.makeText(getApplicationContext(), "Parsed photo urls", Toast.LENGTH_SHORT).show();
+                    if (photoUrlList.isEmpty())
+                        Toast.makeText(getApplicationContext(), "No images for this venue", Toast.LENGTH_SHORT).show();
+                    else
+                        new DownloadImageTask((ImageView) findViewById(R.id.imageView))
+                                .execute((String) photoUrlList.get(0));
+                }
+            }
+        }
+    }
+
 
     public static String makeCall(String url) {
 
@@ -381,7 +429,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return replyString.trim();
     }
 
-    private static ArrayList parseFoursquare(final String response) {
+    private static ArrayList parseFoursquareVenueList(final String response) {
         ArrayList temp = new ArrayList();
         try {
 
@@ -420,6 +468,68 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return temp;
 
         }
+
+    private static ArrayList parsePhotoUrlList(final String response) {
+        ArrayList temp = new ArrayList();
+        try {
+
+            // make an jsonObject in order to parse the response
+            JSONObject jsonObject = new JSONObject(response);
+
+            // make an jsonObject in order to parse the response
+            if (jsonObject.has("response")) {
+                if (jsonObject.getJSONObject("response").getJSONObject("photos").has("items")) {
+                    JSONArray jsonArray = jsonObject.getJSONObject("response").getJSONObject("photos").getJSONArray("items");
+                    // {c: .response.venues[].categories[].name}
+                    // {c: .response.venues[].location.lng}
+                    // {c: .response.venues[].name}
+
+                    for (int i = 0; i<jsonArray.length() ; i++) {
+                        // FoursquareVenue poi = new FoursquareVenue();
+                        // String latTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lat");
+                        // String lngTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lng");
+                        String prefixTemp = jsonArray.getJSONObject(i).getString("prefix");
+                        String suffixTemp = jsonArray.getJSONObject(i).getString("suffix");
+                        // String catTemp = jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("id");
+                        // String idTemp = jsonArray.getJSONObject(i).getString("id");
+                        // poi.setLat(latTemp);
+                        temp.add(prefixTemp + imDimensions + suffixTemp);
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ArrayList();
+        }
+        return temp;
+
+    }
+
+    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+        ImageView bmImage;
+
+        public DownloadImageTask(ImageView bmImage) {
+            this.bmImage = bmImage;
+        }
+
+        protected Bitmap doInBackground(String... urls) {
+            String urldisplay = urls[0];
+            Bitmap fsImage = null;
+            try {
+                InputStream in = new java.net.URL(urldisplay).openStream();
+                fsImage = BitmapFactory.decodeStream(in);
+            } catch (Exception e) {
+                Log.e("Error", e.getMessage());
+                e.printStackTrace();
+            }
+            return fsImage;
+        }
+
+        protected void onPostExecute(Bitmap result) {
+            bmImage.setImageBitmap(result);
+        }
+    }
 
     /**
      * Manipulates the map once available.
@@ -760,8 +870,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onInfoWindowClick(final Marker marker) {
         String venueId = (String)marker.getTag();
-        Uri fsUri = Uri.parse("https://foursquare.com/venue/" + venueId);
-        Intent launchFS = new Intent(Intent.ACTION_VIEW, fsUri);
-        startActivity(launchFS);
+        new foursquarePhotoFetch().execute(venueId, "last");
+        // Uri fsUri = Uri.parse("https://foursquare.com/venue/" + venueId);
+        // Intent launchFS = new Intent(Intent.ACTION_VIEW, fsUri);
+        // startActivity(launchFS);
     }
 }
