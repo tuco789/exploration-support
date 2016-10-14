@@ -16,6 +16,7 @@ import android.hardware.SensorEventListener;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.DrawerLayout;
@@ -388,9 +389,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     Toast.makeText(getApplicationContext(), "Parsed photo urls", Toast.LENGTH_SHORT).show();
                     if (photoUrlList.isEmpty())
                         Toast.makeText(getApplicationContext(), "No images for this venue", Toast.LENGTH_SHORT).show();
-                    else
-                        new DownloadImageTask((ImageView) findViewById(R.id.imageView))
+                    else {
+                        BottomSheetDialogFragment bottomSheetDialogFragment = new TutsPlusBottomSheetDialogFragment();
+                        bottomSheetDialogFragment.show(getSupportFragmentManager(), bottomSheetDialogFragment.getTag());
+                        ImageView legendImageView = (ImageView) findViewById(R.id.imageView);
+                        if (legendImageView == null)
+                            Toast.makeText(getApplicationContext(), "bottomImageView == null", Toast.LENGTH_SHORT).show();
+                        else
+                            new DownloadImageTask(legendImageView)
                                 .execute((String) photoUrlList.get(0));
+                    }
                 }
             }
         }
@@ -506,7 +514,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
-    private class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
+    public class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
         ImageView bmImage;
 
         public DownloadImageTask(ImageView bmImage) {
