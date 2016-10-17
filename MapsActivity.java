@@ -16,6 +16,7 @@ import android.hardware.SensorEventListener;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.support.design.widget.BottomSheetBehavior;
 import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -111,7 +112,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private int uiStyle = 0;
     ArrayList venuesList;
     ArrayList photoUrlList;
-    private static final String imDimensions = "height300";
+    private static final String imDimensions = "cap300";
+    private BottomSheetBehavior mBottomSheetBehavior;
 
     // the foursquare client_id and the client_secret
     final String CLIENT_ID = "I0C0HY1NYS1KL1FWKW1SUS3SLP2ZBA40PXIOBBT5HTVBPM3A";
@@ -198,6 +200,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         venuesList = new ArrayList();
         photoUrlList = new ArrayList();
+        View bottomSheet = findViewById( R.id.bottom_sheet );
+        mBottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
+        // Toast.makeText(getApplicationContext(), "Finishing onCreate!", Toast.LENGTH_SHORT).show();
     }
 
     protected void onStart() {
@@ -390,14 +395,16 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (photoUrlList.isEmpty())
                         Toast.makeText(getApplicationContext(), "No images for this venue", Toast.LENGTH_SHORT).show();
                     else {
-                        BottomSheetDialogFragment bottomSheetDialogFragment = new TutsPlusBottomSheetDialogFragment();
-                        bottomSheetDialogFragment.show(getSupportFragmentManager(), bottomSheetDialogFragment.getTag());
-                        ImageView legendImageView = (ImageView) findViewById(R.id.imageView);
-                        if (legendImageView == null)
-                            Toast.makeText(getApplicationContext(), "bottomImageView == null", Toast.LENGTH_SHORT).show();
-                        else
-                            new DownloadImageTask(legendImageView)
-                                .execute((String) photoUrlList.get(0));
+                        // BottomSheetDialogFragment bottomSheetDialogFragment = new TutsPlusBottomSheetDialogFragment();
+                        // bottomSheetDialogFragment.show(getSupportFragmentManager(), bottomSheetDialogFragment.getTag());
+                        ImageView bsImageView = (ImageView) findViewById(R.id.bsImageView);
+                        if (bsImageView == null)
+                            Toast.makeText(getApplicationContext(), "bsImageView == null", Toast.LENGTH_SHORT).show();
+                        else {
+                            new DownloadImageTask(bsImageView)
+                                    .execute((String) photoUrlList.get(0));
+                            mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                        }
                     }
                 }
             }
@@ -488,19 +495,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (jsonObject.has("response")) {
                 if (jsonObject.getJSONObject("response").getJSONObject("photos").has("items")) {
                     JSONArray jsonArray = jsonObject.getJSONObject("response").getJSONObject("photos").getJSONArray("items");
-                    // {c: .response.venues[].categories[].name}
-                    // {c: .response.venues[].location.lng}
-                    // {c: .response.venues[].name}
 
                     for (int i = 0; i<jsonArray.length() ; i++) {
-                        // FoursquareVenue poi = new FoursquareVenue();
-                        // String latTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lat");
-                        // String lngTemp = jsonArray.getJSONObject(i).getJSONObject("location").getString("lng");
                         String prefixTemp = jsonArray.getJSONObject(i).getString("prefix");
                         String suffixTemp = jsonArray.getJSONObject(i).getString("suffix");
-                        // String catTemp = jsonArray.getJSONObject(i).getJSONArray("categories").getJSONObject(0).getString("id");
-                        // String idTemp = jsonArray.getJSONObject(i).getString("id");
-                        // poi.setLat(latTemp);
                         temp.add(prefixTemp + imDimensions + suffixTemp);
                     }
                 }
