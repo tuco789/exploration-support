@@ -120,6 +120,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     ArrayList photoUrlList;
     private static final String imDimensions = "cap300";
     private BottomSheetBehavior mBottomSheetBehavior;
+    private View bottomSheet;
 
     // the foursquare client_id and the client_secret
     final String CLIENT_ID = "I0C0HY1NYS1KL1FWKW1SUS3SLP2ZBA40PXIOBBT5HTVBPM3A";
@@ -130,7 +131,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private ProgressBar mProgressBar;
     private GridViewAdapter mGridAdapter;
     private ArrayList<GridItem> mGridData;
-    private String FEED_URL = "http://stacktips.com/?json=get_recent_posts&count=9";
+//    private String FEED_URL = "http://stacktips.com/?json=get_recent_posts&count=9";
 
 
     @Override
@@ -212,20 +213,20 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         venuesList = new ArrayList();
         photoUrlList = new ArrayList();
-        View bottomSheet = findViewById( R.id.bottom_sheet );
+        bottomSheet = findViewById( R.id.bottom_sheet );
         mBottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
 
         mGridView = (GridView) findViewById(R.id.gridView);
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
-        //Initialize with empty data
+        //Initialize image GridView with empty data
         mGridData = new ArrayList<>();
         mGridAdapter = new GridViewAdapter(this, R.layout.grid_item_layout, mGridData);
         mGridView.setAdapter(mGridAdapter);
 
         //Start download
-        new AsyncHttpTask().execute(FEED_URL);
-        mProgressBar.setVisibility(View.VISIBLE);
+//        new AsyncHttpTask().execute(FEED_URL);
+//        mProgressBar.setVisibility(View.VISIBLE);
 
         // Toast.makeText(getApplicationContext(), "Finishing onCreate!", Toast.LENGTH_SHORT).show();
     }
@@ -489,26 +490,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             } else {
                 // all things went right
                 // parseFoursquare venue photo url result
-                ArrayList tempAL = (ArrayList) parsePhotoUrlList(temp);
-                if (tempAL == null)
+                // ArrayList tempAL = (ArrayList) parsePhotoUrlList(temp);
+                parsePhotoUrlList(temp);
+/*                if (tempAL == null)
                     Toast.makeText(getApplicationContext(), "No photos to parse", Toast.LENGTH_SHORT).show();
                 else
                     photoUrlList.addAll(tempAL);
+*/
+                // Download complete. Let us update UI
+                mGridAdapter.setGridData(mGridData);
+                MapsActivity.this.runOnUiThread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        // your stuff to update the UI
+                        mGridAdapter.notifyDataSetChanged();
+                    }
+                });
                 if (result.equals("last")) {
                     // Fetch images using URLs
                     Toast.makeText(getApplicationContext(), "Parsed photo urls", Toast.LENGTH_SHORT).show();
-                    if (photoUrlList.isEmpty())
+                    /* if (photoUrlList.isEmpty())
                         Toast.makeText(getApplicationContext(), "No images for this venue", Toast.LENGTH_SHORT).show();
                     else {
                         // ImageView bsImageView = (ImageView) findViewById(R.id.bsImageView);
-                        /* if (bsImageView == null)
+                        if (bsImageView == null)
                             Toast.makeText(getApplicationContext(), "bsImageView == null", Toast.LENGTH_SHORT).show();
                         else {
                             new DownloadImageTask(bsImageView)
                                     .execute((String) photoUrlList.get(0));*/
                             mBottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
                         //}
-                    }
+                   // }
                 }
             }
         }
@@ -587,7 +600,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         }
 
-    private static ArrayList parsePhotoUrlList(final String response) {
+    private void parsePhotoUrlList(final String response) {
         ArrayList temp = new ArrayList();
         try {
 
@@ -602,16 +615,20 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     for (int i = 0; i<jsonArray.length() ; i++) {
                         String prefixTemp = jsonArray.getJSONObject(i).getString("prefix");
                         String suffixTemp = jsonArray.getJSONObject(i).getString("suffix");
-                        temp.add(prefixTemp + imDimensions + suffixTemp);
+                        // temp.add(prefixTemp + imDimensions + suffixTemp);
+                        GridItem tempGridItem = new GridItem();
+                        tempGridItem.setImage(prefixTemp + imDimensions + suffixTemp);
+                        tempGridItem.setTitle("Photo by:");
+                        mGridData.add(tempGridItem);
                     }
                 }
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            return new ArrayList();
+           // return new ArrayList();
         }
-        return temp;
+        // return temp;
 
     }
 
@@ -980,6 +997,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onInfoWindowClick(final Marker marker) {
         String venueId = (String)marker.getTag();
         new foursquarePhotoFetch().execute(venueId, "last");
+
         // Uri fsUri = Uri.parse("https://foursquare.com/venue/" + venueId);
         // Intent launchFS = new Intent(Intent.ACTION_VIEW, fsUri);
         // startActivity(launchFS);
