@@ -14,10 +14,8 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorManager;
 import android.hardware.SensorEventListener;
 import android.location.Location;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.design.widget.BottomSheetBehavior;
-import android.support.design.widget.BottomSheetDialogFragment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.DrawerLayout;
@@ -52,6 +50,7 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.GroundOverlay;
 import com.google.android.gms.maps.model.GroundOverlayOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
@@ -109,6 +108,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private SensorManager mSensorManager;
     private float[] mRotationMatrix = new float[16];
     private float mDeclination;
+    private float bearing_old = 400f;
 
     private GroundOverlay mGroundOverlay;
     ImageView legend;
@@ -131,6 +131,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private ProgressBar mProgressBar;
     private GridViewAdapter mGridAdapter;
     private ArrayList<GridItem> mGridData;
+    private int numPhotosFetched = 0;
 //    private String FEED_URL = "http://stacktips.com/?json=get_recent_posts&count=9";
 
 
@@ -497,19 +498,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 else
                     photoUrlList.addAll(tempAL);
 */
-                // Download complete. Let us update UI
-                mGridAdapter.setGridData(mGridData);
-                MapsActivity.this.runOnUiThread(new Runnable() {
 
-                    @Override
-                    public void run() {
-                        // your stuff to update the UI
-                        mGridAdapter.notifyDataSetChanged();
-                    }
-                });
                 if (result.equals("last")) {
-                    // Fetch images using URLs
                     Toast.makeText(getApplicationContext(), "Parsed photo urls", Toast.LENGTH_SHORT).show();
+                    // Download complete. Let us update UI
+                    mGridAdapter.setGridData(mGridData);
+                    MapsActivity.this.runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            // your stuff to update the UI
+                            mGridAdapter.notifyDataSetChanged();
+                        }
+                    });
                     /* if (photoUrlList.isEmpty())
                         Toast.makeText(getApplicationContext(), "No images for this venue", Toast.LENGTH_SHORT).show();
                     else {
@@ -602,8 +603,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void parsePhotoUrlList(final String response) {
         ArrayList temp = new ArrayList();
+        //mGridData.clear();
         try {
-
             // make an jsonObject in order to parse the response
             JSONObject jsonObject = new JSONObject(response);
 
@@ -612,14 +613,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (jsonObject.getJSONObject("response").getJSONObject("photos").has("items")) {
                     JSONArray jsonArray = jsonObject.getJSONObject("response").getJSONObject("photos").getJSONArray("items");
 
-                    for (int i = 0; i<jsonArray.length() ; i++) {
-                        String prefixTemp = jsonArray.getJSONObject(i).getString("prefix");
-                        String suffixTemp = jsonArray.getJSONObject(i).getString("suffix");
+                    if (jsonArray.length() > 0) { // Use only first image
+                    //for (int i = 0; i<jsonArray.length() ; i++) {
+                        String prefixTemp = jsonArray.getJSONObject(0).getString("prefix");
+                        String suffixTemp = jsonArray.getJSONObject(0).getString("suffix");
                         // temp.add(prefixTemp + imDimensions + suffixTemp);
                         GridItem tempGridItem = new GridItem();
                         tempGridItem.setImage(prefixTemp + imDimensions + suffixTemp);
-                        tempGridItem.setTitle("Photo by:");
+                        // tempGridItem.setTitle("Photo by:");
                         mGridData.add(tempGridItem);
+                        //numPhotosFetched++;
+                       // if (mGridData.size() > i+1)
+                      //      mGridData.remove(i+1);
                     }
                 }
             }
@@ -957,7 +962,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onSensorChanged(SensorEvent event) {
 
-        if(event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+        if(event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR && mMap != null) {
             SensorManager.getRotationMatrixFromVector(
                     mRotationMatrix , event.values);
             float[] orientation = new float[3];
@@ -967,6 +972,43 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (uiStyle-1 == 0 || uiStyle-1 == 1)
                 if (mGroundOverlay != null)
                     mGroundOverlay.setBearing(bearing);
+
+            if (bearing_old - bearing > 30 || bearing_old - bearing < -30) { // Don't go into making FS calls, unless considerable change in
+                mGridData.clear();
+                numPhotosFetched = 0;
+                // 1. Get top half of the visible region on the map/radar
+                LatLng visibleRegionTopR = mMap.getProjection().getVisibleRegion().farRight;
+                LatLng visibleRegionBotL = mMap.getProjection().getVisibleRegion().nearLeft;
+                LatLng topHalfBotL = new LatLng((visibleRegionBotL.latitude + visibleRegionTopR.latitude) / 2, (visibleRegionBotL.longitude + visibleRegionTopR.longitude) / 2);
+                LatLngBounds topHalfRegion;
+                if (topHalfBotL.latitude < visibleRegionTopR.latitude) // Need to know which is the SW corner
+                    topHalfRegion = new LatLngBounds(topHalfBotL, visibleRegionTopR);
+                else
+                    topHalfRegion = new LatLngBounds(visibleRegionTopR, topHalfBotL);
+
+                //2. Check which venues are inside top half of visible
+                int numVenuesToPreview;
+                if (venuesList.size() < 9) // This assumes that all venues have photos, which is not true!!!
+                    numVenuesToPreview = venuesList.size();
+                else
+                    numVenuesToPreview = 9;
+                int i = 0;
+                while (i < venuesList.size()) {
+                    FoursquareVenue tempVenue = (FoursquareVenue) venuesList.get(i);
+                    if (topHalfRegion.contains(tempVenue.getLatLng())) {
+                        //3. Get URLs for images, and display them
+                        if (i < venuesList.size()-1 && numPhotosFetched < 10)
+                            new foursquarePhotoFetch().execute(tempVenue.getId(), "");
+                        else
+                            new foursquarePhotoFetch().execute(tempVenue.getId(), "last");
+                    }
+                    i++;
+                }
+                bearing_old = bearing;
+            }
+
+
+
 //            bearing_old = bearing;
         }
 

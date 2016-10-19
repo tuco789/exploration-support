@@ -1,5 +1,7 @@
 package fi.aalto.ming.uitestscreens;
 
+import com.google.android.gms.maps.model.LatLng;
+
 public class FoursquareVenue {
     private String name;
     private String city;
@@ -75,4 +77,6 @@ public class FoursquareVenue {
     public float getLng() {
         return lng;
     }
+
+    public LatLng getLatLng () { return new LatLng((double) lat, (double) lng); }
 }
