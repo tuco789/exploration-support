@@ -1,7 +1,6 @@
 package fi.aalto.ming.uitestscreens;
 
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
@@ -60,14 +59,10 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.ByteArrayBuffer;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -153,7 +148,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         old_building_lat = res.obtainTypedArray(R.array.old_building_lat);
         old_building_lng = res.obtainTypedArray(R.array.old_building_lng);
 
-//        selected_ids.add("47");
         for (int i=0; i<venue_ids.length; i++)
             selected_ids.add(venue_ids[i]);
 
@@ -229,9 +223,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 //        new AsyncHttpTask().execute(FEED_URL);
 //        mProgressBar.setVisibility(View.VISIBLE);
 
-        // Toast.makeText(getApplicationContext(), "Finishing onCreate!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getApplicationContext(), "Finishing onCreate!", Toast.LENGTH_SHORT).show();
     }
 
+    /*
     //Downloading data asynchronously
     public class AsyncHttpTask extends AsyncTask<String, Void, Integer> {
 
@@ -288,7 +283,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     /**
      * Parsing the feed results and get the list
      * @param result
-     */
+
     private void parseResult(String result) {
         try {
             JSONObject response = new JSONObject(result);
@@ -303,7 +298,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (null != attachments && attachments.length() > 0) {
                     JSONObject attachment = attachments.getJSONObject(0);
                     if (attachment != null)
-                        item.setImage(attachment.getString("url"));
+                        item.setImageURL(attachment.getString("url"));
                 }
                 mGridData.add(item);
             }
@@ -311,7 +306,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             e.printStackTrace();
         }
     }
-
+*/
     protected void onStart() {
         mGoogleApiClient.connect();
         super.onStart();
@@ -427,7 +422,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private class foursquareVenueSearch extends AsyncTask<String, Void, String> {
-        String temp;
+        String jsonVenueResult;
 
         @Override
         protected String doInBackground(String... urls) {
@@ -441,7 +436,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 sw = new LatLng(mLastLocation.getLatitude() - LAT_RADIUS, mLastLocation.getLongitude() - LNG_RADIUS);
                 ne = new LatLng(mLastLocation.getLatitude() + LAT_RADIUS, mLastLocation.getLongitude() + LNG_RADIUS);
             }
-            temp = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + sw.latitude + "," + sw.longitude + "&ne=" + ne.latitude + "," + ne.longitude + "&categoryId=" + urls[0] + "&intent=browse&limit=60");
+            jsonVenueResult = makeCall("https://api.foursquare.com/v2/venues/search?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815&sw=" + sw.latitude + "," + sw.longitude + "&ne=" + ne.latitude + "," + ne.longitude + "&categoryId=" + urls[0] + "&intent=browse&limit=60");
             return urls[1];
         }
 
@@ -452,13 +447,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         @Override
         protected void onPostExecute(String result) {
-            if (temp == null) {
+            if (jsonVenueResult == null) {
                 // we have an error to the call
                 // we can also stop the progress bar
             } else {
                 // all things went right
                 // parseFoursquare venues search result
-                venuesList.addAll((ArrayList) parseFoursquareVenueList(temp));
+                venuesList.addAll((ArrayList) parseFoursquareVenueList(jsonVenueResult));
                 if (result.equals("last")) {
                     if (uiStyle > 0)
                         uiStyle--;
@@ -469,12 +464,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private class foursquarePhotoFetch extends AsyncTask<String, Void, String> {
-        String temp;
+        String jsonPhotoURLResult;
 
         @Override
         protected String doInBackground(String... urls) {
             // https://api.foursquare.com/v2/venues/VENUE_ID/photos
-            temp = makeCall("https://api.foursquare.com/v2/venues/" + urls[0] + "/photos?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815");
+            jsonPhotoURLResult = makeCall("https://api.foursquare.com/v2/venues/" + urls[0] + "/photos?client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&v=20130815");
             return urls[1];
         }
 
@@ -485,14 +480,15 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         @Override
         protected void onPostExecute(String result) {
-            if (temp == null) {
+            if (jsonPhotoURLResult == null) {
                 // we have an error to the call
                 // we can also stop the progress bar
             } else {
                 // all things went right
                 // parseFoursquare venue photo url result
                 // ArrayList tempAL = (ArrayList) parsePhotoUrlList(temp);
-                parsePhotoUrlList(temp);
+                if (mGridData.size() < 12)
+                    parsePhotoUrlList(jsonPhotoURLResult);
 /*                if (tempAL == null)
                     Toast.makeText(getApplicationContext(), "No photos to parse", Toast.LENGTH_SHORT).show();
                 else
@@ -619,7 +615,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         String suffixTemp = jsonArray.getJSONObject(0).getString("suffix");
                         // temp.add(prefixTemp + imDimensions + suffixTemp);
                         GridItem tempGridItem = new GridItem();
-                        tempGridItem.setImage(prefixTemp + imDimensions + suffixTemp);
+                        tempGridItem.setImageURL(prefixTemp + imDimensions + suffixTemp);
                         // tempGridItem.setTitle("Photo by:");
                         mGridData.add(tempGridItem);
                         //numPhotosFetched++;
@@ -973,43 +969,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (mGroundOverlay != null)
                     mGroundOverlay.setBearing(bearing);
 
-            if (bearing_old - bearing > 30 || bearing_old - bearing < -30) { // Don't go into making FS calls, unless considerable change in
-                mGridData.clear();
-                numPhotosFetched = 0;
-                // 1. Get top half of the visible region on the map/radar
-                LatLng visibleRegionTopR = mMap.getProjection().getVisibleRegion().farRight;
-                LatLng visibleRegionBotL = mMap.getProjection().getVisibleRegion().nearLeft;
-                LatLng topHalfBotL = new LatLng((visibleRegionBotL.latitude + visibleRegionTopR.latitude) / 2, (visibleRegionBotL.longitude + visibleRegionTopR.longitude) / 2);
-                LatLngBounds topHalfRegion;
-                if (topHalfBotL.latitude < visibleRegionTopR.latitude) // Need to know which is the SW corner
-                    topHalfRegion = new LatLngBounds(topHalfBotL, visibleRegionTopR);
-                else
-                    topHalfRegion = new LatLngBounds(visibleRegionTopR, topHalfBotL);
-
-                //2. Check which venues are inside top half of visible
-                int numVenuesToPreview;
-                if (venuesList.size() < 9) // This assumes that all venues have photos, which is not true!!!
-                    numVenuesToPreview = venuesList.size();
-                else
-                    numVenuesToPreview = 9;
-                int i = 0;
-                while (i < venuesList.size()) {
-                    FoursquareVenue tempVenue = (FoursquareVenue) venuesList.get(i);
-                    if (topHalfRegion.contains(tempVenue.getLatLng())) {
-                        //3. Get URLs for images, and display them
-                        if (i < venuesList.size()-1 && numPhotosFetched < 10)
-                            new foursquarePhotoFetch().execute(tempVenue.getId(), "");
-                        else
-                            new foursquarePhotoFetch().execute(tempVenue.getId(), "last");
-                    }
-                    i++;
-                }
-                bearing_old = bearing;
+            if (Math.abs(bearing_old - bearing) > 30) { // Don't go into making FS calls, unless considerable change in bearing
+                updateImageGrid(bearing);
             }
 
-
-
-//            bearing_old = bearing;
         }
 
        /* IF NEEDS TO LIMIT THE AMOUNT OF UPDATES
@@ -1028,6 +991,46 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             CameraPosition pos = CameraPosition.builder(oldPos).bearing(bearing).build();
             mMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
         }
+    }
+
+    private void updateImageGrid(float bearing) {
+        mGridData.clear();
+        numPhotosFetched = 0;
+        Toast.makeText(getApplicationContext(), "Bearing difference: " + (bearing_old - bearing), Toast.LENGTH_SHORT).show();
+        // 1. Get top half of the visible region on the map/radar
+        LatLng visibleRegionTopR = mMap.getProjection().getVisibleRegion().farRight;
+        LatLng visibleRegionBotL = mMap.getProjection().getVisibleRegion().nearLeft;
+        LatLng topHalfBotL = new LatLng((visibleRegionBotL.latitude + visibleRegionTopR.latitude) / 2, (visibleRegionBotL.longitude + visibleRegionTopR.longitude) / 2);
+        LatLngBounds topHalfRegion;
+        if (topHalfBotL.latitude < visibleRegionTopR.latitude) // Need to know which is the SW corner
+            topHalfRegion = new LatLngBounds(topHalfBotL, visibleRegionTopR);
+        else
+            topHalfRegion = new LatLngBounds(visibleRegionTopR, topHalfBotL);
+
+        //2. Check which venues are inside top half of visible
+        int numVenuesToPreview;
+        if (venuesList.size() < 9) // This assumes that all venues have photos, which is not true!!!
+            numVenuesToPreview = venuesList.size();
+        else
+            numVenuesToPreview = 9;
+        int i = 0;
+        while (i < venuesList.size()) {
+            FoursquareVenue tempVenue = (FoursquareVenue) venuesList.get(i);
+            if (topHalfRegion.contains(tempVenue.getLatLng()) || i == venuesList.size()-1) { //SHOULD NOT DRAW THE LAST, IF NOT IN TOP HALF!!!!!!!!!!!!!! boolean drawLast
+                //3. Get URLs for images, and display them
+                // if (i < venuesList.size()-1 && numPhotosFetched < 10)
+                if (i < venuesList.size()-1) {
+                    new foursquarePhotoFetch().execute(tempVenue.getId(), "");
+                    //Toast.makeText(getApplicationContext(), "venueList item " + i + " in topHalf", Toast.LENGTH_SHORT).show();
+                }
+                else {
+                    Toast.makeText(getApplicationContext(), "Reached end of venueList", Toast.LENGTH_SHORT).show();
+                    new foursquarePhotoFetch().execute(tempVenue.getId(), "last");
+                }
+            }
+            i++;
+        }
+        bearing_old = bearing;
     }
 
     @Override

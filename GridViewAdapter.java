@@ -7,7 +7,6 @@ package fi.aalto.ming.uitestscreens;
 import java.util.ArrayList;
 import android.app.Activity;
 import android.content.Context;
-import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -58,7 +57,7 @@ public class GridViewAdapter extends ArrayAdapter<GridItem> {
         GridItem item = mGridData.get(position);
         //holder.titleTextView.setText(Html.fromHtml(item.getTitle()));
 
-        Picasso.with(mContext).load(item.getImage()).into(holder.imageView);
+        Picasso.with(mContext).load(item.getImageURL()).into(holder.imageView);
         return row;
     }
 
